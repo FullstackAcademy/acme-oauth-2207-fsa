@@ -1,8 +1,8 @@
-const axios = require('axios'); 
 const jwt = require('jsonwebtoken'); 
 const Sequelize = require('sequelize'); 
 const { STRING, INTEGER } = Sequelize; 
 const config = { logging: false }; 
+const axios = require('axios');
 
 if(process.env.LOGGING){ delete config.logging; } 
 
@@ -21,13 +21,44 @@ User.byToken = async(token)=> {
  } 
 }; 
 
-User.authenticate = async function(){
-  throw Error('nooooo');
+const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
+const GITHUB_USER_URL = 'https://api.github.com/user'; 
+
+User.authenticate = async function(code){
+  let response = await axios.post(GITHUB_TOKEN_URL, {
+    code,
+    client_id: process.env.GITHUB_CLIENT_ID,
+    client_secret: process.env.GITHUB_CLIENT_SECRET,
+  }, {
+    headers: {
+      accept: 'application/json'
+    }
+  });
+  const { access_token } = response.data;
+  if(!access_token){
+    return response.data;
+  }
+
+  response = await axios.get(GITHUB_USER_URL, {
+    headers: {
+      authorization: `Bearer ${access_token}`
+    }
+  });
+  const { login } = response.data;
+
+  let user = await User.findOne({
+    where: {
+      username: login
+    }
+  });
+  if(!user){
+    user = await User.create({ username: login });
+  }
+
+  return jwt.sign({ id: user.id }, process.env.JWT);
 };
 
 // documentation - https://docs.github.com/en/developers/apps/authorizing-oauth-apps 
-// useful urls const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
-// const GITHUB_USER_URL = 'https://api.github.com/user'; 
 //the authenticate methods is passed a code which has been sent by github 
 
 //consider modifying /github/callback route in app.js in order to test incrementally 
