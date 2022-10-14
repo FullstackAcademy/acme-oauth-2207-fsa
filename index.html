@@ -45,7 +45,13 @@
        else {
         return ( 
           <div>
+            <img src={auth.data.avatar_url} style={{ width: '75px', borderRadius: '50%'}}/>
             <button onClick={ logout }>Logout ({ auth.username})</button>
+            <pre>
+            {
+              JSON.stringify(auth.data, null, 2)
+            }
+            </pre>
           </div>
        );
     };

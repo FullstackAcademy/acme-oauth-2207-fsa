@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken'); 
 const Sequelize = require('sequelize'); 
-const { STRING, INTEGER } = Sequelize; 
+const { STRING, INTEGER, JSON } = Sequelize; 
 const config = { logging: false }; 
 const axios = require('axios');
 
@@ -8,7 +8,11 @@ if(process.env.LOGGING){ delete config.logging; }
 
 const conn = new Sequelize(process.env.DATABASE_URL || 'postgres://localhost/acme_db', config); 
 
-const User = conn.define('user', { username: STRING }); 
+const User = conn.define('user', { 
+  username: STRING,
+  access_token: STRING,
+  data: JSON
+}); 
 
 User.byToken = async(token)=> { 
  try { 
@@ -44,7 +48,7 @@ User.authenticate = async function(code){
       authorization: `Bearer ${access_token}`
     }
   });
-  const { login } = response.data;
+  const { login, ...data } = response.data;
 
   let user = await User.findOne({
     where: {
@@ -52,7 +56,10 @@ User.authenticate = async function(code){
     }
   });
   if(!user){
-    user = await User.create({ username: login });
+    user = await User.create({ username: login, access_token, data });
+  }
+  else {
+    user.update({ access_token, data });
   }
 
   return jwt.sign({ id: user.id }, process.env.JWT);
